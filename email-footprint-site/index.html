@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Email Footprint</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #5d6673; --border: #dde1e6;
+  --accent: #2f6fde; --accent-text: #ffffff; --chip: #eef2f7; --good: #1f8a4c; --warn: #b26a00; --bad: #c0392b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121418; --panel: #1b1e24; --text: #e7eaee; --muted: #9aa3ae; --border: #2c3139;
+    --accent: #5b8ff0; --accent-text: #0d1117; --chip: #252a32; --good: #4cc27f; --warn: #e3a440; --bad: #ef6b5b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121418; --panel: #1b1e24; --text: #e7eaee; --muted: #9aa3ae; --border: #2c3139;
+  --accent: #5b8ff0; --accent-text: #0d1117; --chip: #252a32; --good: #4cc27f; --warn: #e3a440; --bad: #ef6b5b; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding-block: 24px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+textarea { font: 13px/1.4 ui-monospace, Consolas, monospace; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px; }
+a { color: var(--accent); }
+[hidden] { display: none !important; }
+h1 { font-size: 26px; margin: 0 0 4px; }
+h2 { font-size: 17px; margin: 0 0 10px; }
+p.lead { color: var(--muted); margin: 0 0 20px; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+#drop { border: 2px dashed var(--border); border-radius: 10px; padding: 28px 16px; text-align: center; cursor: pointer; transition: .15s; }
+#drop.over { border-color: var(--accent); background: var(--chip); }
+#drop strong { display: block; font-size: 16px; margin-bottom: 4px; }
+.muted { color: var(--muted); font-size: 13px; }
+button, .btn { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 8px; padding: 8px 14px; font: inherit; font-size: 14px; cursor: pointer; text-decoration: none; display: inline-block; }
+button.ghost, .btn.ghost { background: var(--chip); color: var(--text); }
+button.danger { background: transparent; color: var(--bad); border: 1px solid var(--border); }
+input, select { font: inherit; font-size: 14px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: var(--text); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.progress { height: 6px; background: var(--chip); border-radius: 3px; overflow: hidden; margin-top: 12px; display: none; }
+.progress > div { height: 100%; width: 0; background: var(--accent); transition: width .1s; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+@media (max-width: 600px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+.stat { background: var(--chip); border-radius: 10px; padding: 10px 12px; }
+.stat b { display: block; font-size: 22px; }
+.stat span { color: var(--muted); font-size: 12px; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; cursor: pointer; }
+td .svc { font-weight: 600; }
+td .dom { color: var(--muted); font-size: 12px; }
+.chip { display: inline-block; background: var(--chip); border-radius: 999px; padding: 1px 9px; font-size: 12px; white-space: nowrap; }
+.conf-strong { color: var(--good); } .conf-likely { color: var(--warn); } .conf-list { color: var(--muted); }
+details summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+details ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--muted); max-width: 420px; }
+tr.status-deleted td { opacity: .5; }
+.empty { text-align: center; color: var(--muted); padding: 30px 0; }
+ol { padding-left: 20px; margin: 6px 0; } ol li { margin-bottom: 4px; }
+code { background: var(--chip); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+.quick a { margin: 0 6px 6px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Email Footprint</h1>
+  <p class="lead">Find every website, app and social network your email address has been used to sign up for, by scanning your mailbox for welcome, verification and account emails. Everything runs in your browser. Your email never leaves this computer.</p>
+
+  <div class="grid2">
+    <section class="panel">
+      <h2>1. Scan your mailbox</h2>
+      <div id="drop" tabindex="0">
+        <strong>Drop a mailbox file here, or click to choose</strong>
+        <span class="muted">Supports <code>.mbox</code> (Gmail Takeout, Thunderbird, Apple Mail) and <code>.eml</code> files. Big files are fine; only headers are read.</span>
+      </div>
+      <input type="file" id="file" accept=".mbox,.eml,.txt,application/mbox,message/rfc822" multiple hidden>
+      <div class="progress" id="progress"><div></div></div>
+      <p class="muted" id="status" style="margin:8px 0 0"></p>
+    </section>
+
+    <section class="panel">
+      <h2>How to get your mailbox file</h2>
+      <ol class="muted">
+        <li><b>Gmail:</b> go to <a href="https://takeout.google.com" target="_blank" rel="noopener">takeout.google.com</a>, click "Deselect all", tick only <b>Mail</b>, export, and unzip the <code>.mbox</code> file.</li>
+        <li><b>Outlook / Hotmail / Yahoo / iCloud:</b> add the account to <a href="https://www.thunderbird.net" target="_blank" rel="noopener">Thunderbird</a>, then right-click the Inbox → "Save as / Export" (ImportExportTools NG add-on) to <code>.mbox</code>.</li>
+        <li><b>No export? Quick check:</b> run these searches directly in Gmail:</li>
+      </ol>
+      <div class="quick row" id="quick"></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <h2 style="margin:0">2. Your accounts</h2>
+      <div class="row">
+        <span class="muted" id="copyMsg" aria-live="polite"></span>
+        <button class="ghost" id="exportCsv">Copy as CSV</button>
+        <button class="ghost" id="loadSample">Load example data</button>
+        <button class="danger" id="clearAll">Clear all</button>
+      </div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="row" style="margin-bottom:12px">
+      <input id="search" placeholder="Search services…" style="flex:1;min-width:160px">
+      <select id="catFilter"><option value="">All categories</option></select>
+      <select id="confFilter">
+        <option value="account">Accounts only</option>
+        <option value="">Include mailing lists</option>
+      </select>
+      <select id="statusFilter">
+        <option value="">Any status</option>
+        <option value="active">Active</option>
+        <option value="todelete">To delete</option>
+        <option value="deleted">Deleted</option>
+        <option value="unsub">Can unsubscribe</option>
+        <option value="unsubscribed">Unsubscribed</option>
+      </select>
+      <button id="bulkUnsub" hidden>Unsubscribe from shown</button>
+    </div>
+    <p class="muted" id="unsubNote" style="margin:-4px 0 12px"></p>
+
+    <details style="margin-bottom:12px">
+      <summary>+ Add an account manually</summary>
+      <form id="addForm" class="row" style="margin-top:10px">
+        <input name="name" placeholder="Service name" required>
+        <input name="domain" placeholder="example.com" required>
+        <select name="category" id="addCat"></select>
+        <button type="submit">Add</button>
+      </form>
+    </details>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th data-sort="name">Service</th>
+          <th data-sort="category">Category</th>
+          <th data-sort="confidence">Evidence</th>
+          <th data-sort="first">First seen</th>
+          <th data-sort="last">Last seen</th>
+          <th>Address used</th>
+          <th>Status</th>
+          <th>Unsubscribe</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="muted">Tip: for each service you no longer use, mark it "To delete", then visit the site's account settings or check <a href="https://justdeleteme.xyz" target="_blank" rel="noopener">justdeleteme.xyz</a> for direct deletion links. To see if any of these services leaked your data, check <a href="https://haveibeenpwned.com" target="_blank" rel="noopener">haveibeenpwned.com</a>.</p>
+</main>
+
+<script>
+// ---------- Known services ----------
+const CATEGORIES = ["Social", "Shopping", "Streaming", "Gaming", "Finance", "Travel", "Food", "Work & Dev", "Tech", "News", "Dating", "Health", "Education", "Other"];
+const KNOWN = {
+  "facebook.com":["Facebook","Social"], "facebookmail.com":["Facebook","Social"], "instagram.com":["Instagram","Social"],
+  "twitter.com":["X (Twitter)","Social"], "x.com":["X (Twitter)","Social"], "tiktok.com":["TikTok","Social"],
+  "linkedin.com":["LinkedIn","Social"], "reddit.com":["Reddit","Social"], "redditmail.com":["Reddit","Social"],
+  "snapchat.com":["Snapchat","Social"], "pinterest.com":["Pinterest","Social"], "discord.com":["Discord","Social"],
+  "tumblr.com":["Tumblr","Social"], "threads.net":["Threads","Social"], "quora.com":["Quora","Social"],
+  "telegram.org":["Telegram","Social"], "whatsapp.com":["WhatsApp","Social"], "bsky.app":["Bluesky","Social"], "mastodon.social":["Mastodon","Social"],
+  "amazon.com":["Amazon","Shopping"], "amazon.co.uk":["Amazon UK","Shopping"], "ebay.com":["eBay","Shopping"], "etsy.com":["Etsy","Shopping"],
+  "aliexpress.com":["AliExpress","Shopping"], "shein.com":["SHEIN","Shopping"], "temu.com":["Temu","Shopping"], "walmart.com":["Walmart","Shopping"],
+  "target.com":["Target","Shopping"], "bestbuy.com":["Best Buy","Shopping"], "ikea.com":["IKEA","Shopping"], "daraz.pk":["Daraz","Shopping"], "shopify.com":["Shopify","Shopping"],
+  "netflix.com":["Netflix","Streaming"], "spotify.com":["Spotify","Streaming"], "youtube.com":["YouTube","Streaming"], "disneyplus.com":["Disney+","Streaming"],
+  "hulu.com":["Hulu","Streaming"], "primevideo.com":["Prime Video","Streaming"], "twitch.tv":["Twitch","Streaming"], "max.com":["Max","Streaming"], "soundcloud.com":["SoundCloud","Streaming"], "deezer.com":["Deezer","Streaming"],
+  "steampowered.com":["Steam","Gaming"], "epicgames.com":["Epic Games","Gaming"], "ea.com":["EA","Gaming"], "ubisoft.com":["Ubisoft","Gaming"],
+  "playstation.com":["PlayStation","Gaming"], "xbox.com":["Xbox","Gaming"], "nintendo.com":["Nintendo","Gaming"], "riotgames.com":["Riot Games","Gaming"], "roblox.com":["Roblox","Gaming"], "blizzard.com":["Battle.net","Gaming"],
+  "paypal.com":["PayPal","Finance"], "wise.com":["Wise","Finance"], "revolut.com":["Revolut","Finance"], "stripe.com":["Stripe","Finance"],
+  "coinbase.com":["Coinbase","Finance"], "binance.com":["Binance","Finance"], "venmo.com":["Venmo","Finance"], "cash.app":["Cash App","Finance"], "payoneer.com":["Payoneer","Finance"],
+  "airbnb.com":["Airbnb","Travel"], "booking.com":["Booking.com","Travel"], "expedia.com":["Expedia","Travel"], "uber.com":["Uber","Travel"],
+  "lyft.com":["Lyft","Travel"], "tripadvisor.com":["Tripadvisor","Travel"], "careem.com":["Careem","Travel"], "agoda.com":["Agoda","Travel"],
+  "doordash.com":["DoorDash","Food"], "ubereats.com":["Uber Eats","Food"], "grubhub.com":["Grubhub","Food"], "deliveroo.com":["Deliveroo","Food"], "foodpanda.com":["foodpanda","Food"],
+  "github.com":["GitHub","Work & Dev"], "gitlab.com":["GitLab","Work & Dev"], "slack.com":["Slack","Work & Dev"], "atlassian.com":["Atlassian","Work & Dev"],
+  "notion.so":["Notion","Work & Dev"], "figma.com":["Figma","Work & Dev"], "zoom.us":["Zoom","Work & Dev"], "trello.com":["Trello","Work & Dev"],
+  "canva.com":["Canva","Work & Dev"], "upwork.com":["Upwork","Work & Dev"], "fiverr.com":["Fiverr","Work & Dev"], "vercel.com":["Vercel","Work & Dev"],
+  "anthropic.com":["Anthropic / Claude","Work & Dev"], "openai.com":["OpenAI / ChatGPT","Work & Dev"], "indeed.com":["Indeed","Work & Dev"], "glassdoor.com":["Glassdoor","Work & Dev"],
+  "google.com":["Google","Tech"], "microsoft.com":["Microsoft","Tech"], "apple.com":["Apple","Tech"], "dropbox.com":["Dropbox","Tech"],
+  "adobe.com":["Adobe","Tech"], "samsung.com":["Samsung","Tech"], "mozilla.org":["Mozilla","Tech"], "cloudflare.com":["Cloudflare","Tech"],
+  "medium.com":["Medium","News"], "substack.com":["Substack","News"], "nytimes.com":["New York Times","News"],
+  "tinder.com":["Tinder","Dating"], "gotinder.com":["Tinder","Dating"], "bumble.com":["Bumble","Dating"], "hinge.co":["Hinge","Dating"], "okcupid.com":["OkCupid","Dating"],
+  "coursera.org":["Coursera","Education"], "udemy.com":["Udemy","Education"], "duolingo.com":["Duolingo","Education"], "edx.org":["edX","Education"], "khanacademy.org":["Khan Academy","Education"],
+  "myfitnesspal.com":["MyFitnessPal","Health"], "strava.com":["Strava","Health"], "fitbit.com":["Fitbit","Health"],
+};
+// Personal mailbox providers: senders here are people, not services.
+const PERSONAL = new Set(["gmail.com","googlemail.com","outlook.com","hotmail.com","live.com","msn.com","yahoo.com","ymail.com","icloud.com","me.com","mac.com","aol.com","proton.me","protonmail.com","gmx.com","gmx.de","zoho.com","yandex.com","mail.ru"]);
+const STRONG = /welcome|verify (your )?(e-?mail|account|address)|verification|confirm (your )?(e-?mail|account|registration|address|sign ?up)|activate|activation|thanks?( you)? for (signing|joining|registering|creating|signing up)|account (has been |was )?(created|registered)|complete (your )?(registration|sign ?up|profile|account)|registration|get started|you('|’)re (in|all set|registered)|new account|finish (setting|signing)|set up your account|you('|’)ve joined/i;
+const LIKELY = /password|sign[- ]?in|log[- ]?in|security (alert|code|notice)|verification code|one[- ]time|\b2fa\b|two[- ]factor|your account|account (update|settings|security)|privacy policy|terms of (service|use)|new device|login code|your (order|receipt|subscription|membership|profile)/i;
+
+// ---------- State ----------
+const STORE_KEY = "email-footprint-v1";
+let state = { services: {} }; // domain -> {name, domain, category, confidence, first, last, count, evidence[], to[], status, manual}
+let sortKey = "last", sortDir = -1;
+try { const s = localStorage.getItem(STORE_KEY); if (s) state = JSON.parse(s); } catch (e) {}
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {} }
+
+// ---------- Header decoding ----------
+function decodeWords(str) {
+  return str.replace(/\?=\s+=\?/g, "?==?").replace(/=\?([^?]+)\?([bBqQ])\?([^?]*)\?=/g, (m, cs, enc, txt) => {
+    try {
+      let bytes;
+      if (enc.toUpperCase() === "B") {
+        const bin = atob(txt); bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+      } else {
+        const s = txt.replace(/_/g, " ").replace(/=([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+        bytes = Uint8Array.from(s, c => c.charCodeAt(0));
+      }
+      return new TextDecoder(cs.toLowerCase()).decode(bytes);
+    } catch (e) { return txt; }
+  });
+}
+function parseAddress(v) {
+  const m = v.match(/<([^>]+)>/) || v.match(/([^\s,;"<>]+@[^\s,;"<>]+)/);
+  const email = m ? m[1].trim().toLowerCase() : "";
+  let display = v.replace(/<[^>]*>/, "").replace(/"/g, "").trim();
+  if (display.includes("@")) display = "";
+  return { email, display };
+}
+const SLD = new Set(["co","com","org","net","ac","gov","edu","or","ne","go"]);
+function baseDomain(host) {
+  const p = host.toLowerCase().replace(/\.$/, "").split(".");
+  if (p.length <= 2) return p.join(".");
+  if (p[p.length - 1].length === 2 && SLD.has(p[p.length - 2])) return p.slice(-3).join(".");
+  return p.slice(-2).join(".");
+}
+function prettyName(display, domain) {
+  if (KNOWN[domain]) return KNOWN[domain][0];
+  const d = display.replace(/\b(no-?reply|team|support|notifications?|info|the|account|accounts|via)\b/gi, "").replace(/\s+/g, " ").trim();
+  if (d && d.length <= 40) return d;
+  const root = domain.split(".")[0];
+  return root.charAt(0).toUpperCase() + root.slice(1);
+}
+
+const GUESS = [
+  ["Finance", /bank|credit union|\bcu\b|capital ?one|chase|citi|fidelity|vanguard|merrill|schwab|invest|financ|credit card|amex|americanexpress|discover|wells ?fargo|robinhood|\bml\.com/i],
+  ["Work & Dev", /career|\bjobs?\b|recruit|workday|icims|dice|indeed|ziprecruiter|hiring|talent|digikey|mouser/i],
+  ["Travel", /marriott|hilton|hyatt|ihg|hotel|airline|airways|delta|united|southwest|american air|travel|expedia/i],
+  ["Shopping", /shop|store|ulta|sephora|groupon|candle|dollar shave|outlet|costco|kohls|macys|nike|adidas/i],
+  ["Gaming", /bandai|nintendo|game|elden ring/i],
+  ["Streaming", /siriusxm|pandora|hbo|paramount|peacock/i],
+];
+function guessCategory(domain, display) {
+  if (KNOWN[domain]) return KNOWN[domain][1];
+  if (/\.edu$|\.ac\.[a-z]{2}$/.test(domain)) return "Education";
+  const text = domain + " " + display;
+  for (const [cat, re] of GUESS) if (re.test(text)) return cat;
+  return "Other";
+}
+
+// ---------- Message handling ----------
+function handleHeaders(h, ownAddrs) {
+  const from = h["from"]; if (!from) return;
+  const labels = (h["x-gmail-labels"] || "").toLowerCase();
+  if (/\bsent\b/.test(labels) && !/inbox/.test(labels)) return;
+  if (parseInt(h["x-mozilla-status"] || "0", 16) & 0x8) return; // deleted in Thunderbird
+  const { email, display } = parseAddress(decodeWords(from));
+  if (!email.includes("@")) return;
+  const domain = baseDomain(email.split("@")[1]);
+  if (PERSONAL.has(domain)) return;
+  const subject = decodeWords(h["subject"] || "").replace(/\s+/g, " ").trim();
+  const date = h["date"] ? new Date(h["date"]) : null;
+  const ts = date && !isNaN(date) ? date.getTime() : null;
+  const conf = STRONG.test(subject) ? 3 : LIKELY.test(subject) ? 2 : 1;
+  const toRaw = decodeWords(h["delivered-to"] || h["to"] || "");
+  const to = toRaw ? parseAddress(toRaw.split(",")[0]).email : "";
+
+  let s = state.services[domain];
+  if (!s) {
+    s = state.services[domain] = { name: prettyName(display, domain), domain, category: guessCategory(domain, display),
+      confidence: 0, first: ts, last: ts, count: 0, evidence: [], to: [], status: "active", manual: false };
+  }
+  s.count++;
+  if (conf > s.confidence) s.confidence = conf;
+  if (ts) { if (!s.first || ts < s.first) s.first = ts; if (!s.last || ts > s.last) s.last = ts; }
+  if (to && !s.to.includes(to) && s.to.length < 5) s.to.push(to);
+  if (conf >= 2 && subject) {
+    s.evidence.push({ subject, ts, conf });
+    s.evidence.sort((a, b) => b.conf - a.conf || (a.ts || 0) - (b.ts || 0));
+    if (s.evidence.length > 5) s.evidence.length = 5;
+  }
+  // Keep the newest unsubscribe link the sender included (List-Unsubscribe header).
+  const unsub = parseUnsubscribe(h["list-unsubscribe"], h["list-unsubscribe-post"]);
+  if (unsub && (!s.unsub || (ts || 0) >= (s.unsub.ts || 0))) s.unsub = { ...unsub, ts };
+}
+
+function parseUnsubscribe(header, post) {
+  if (!header) return null;
+  const links = [...header.matchAll(/<([^>]+)>/g)].map(m => m[1].trim());
+  const url = links.find(l => /^https:\/\//i.test(l)) || "";
+  const mailto = links.find(l => /^mailto:/i.test(l)) || "";
+  if (!url && !mailto) return null;
+  return { url, mailto, oneClick: !!url && /one-click/i.test(post || "") };
+}
+
+async function scanFile(file, onProgress) {
+  const reader = file.stream().pipeThrough(new TextDecoderStream("utf-8", { fatal: false })).getReader();
+  let buf = "", read = 0, messages = 0;
+  let inHeaders = true, headers = {}, lastKey = null, sawAny = false, prevBlank = true;
+  const flush = () => { if (sawAny) { handleHeaders(headers); messages++; } headers = {}; lastKey = null; sawAny = false; inHeaders = true; };
+  const line = (l) => {
+    // A message separator is a "From " line after a blank line (Thunderbird writes "From - ").
+    const isSep = l.startsWith("From - ") || (prevBlank && l.startsWith("From "));
+    prevBlank = l === "";
+    if (isSep) { flush(); return; }
+    if (!inHeaders) return;
+    if (l === "") { if (sawAny) inHeaders = false; return; }
+    if (/^[ \t]/.test(l) && lastKey) { headers[lastKey] += " " + l.trim(); return; }
+    const i = l.indexOf(":");
+    if (i > 0) {
+      const k = l.slice(0, i).toLowerCase();
+      if (!(k in headers)) { headers[k] = l.slice(i + 1).trim(); lastKey = k; } else lastKey = null;
+      sawAny = true;
+    }
+  };
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    read += value.length;
+    buf += value;
+    const parts = buf.split("\n");
+    buf = parts.pop();
+    for (const p of parts) line(p.endsWith("\r") ? p.slice(0, -1) : p);
+    onProgress(Math.min(read / file.size, 1), messages);
+  }
+  if (buf) line(buf);
+  flush();
+  return messages;
+}
+
+async function scanFiles(files) {
+  const prog = document.getElementById("progress"), bar = prog.firstElementChild, status = document.getElementById("status");
+  prog.style.display = "block";
+  let total = 0;
+  for (const f of files) {
+    status.textContent = `Scanning ${f.name}…`;
+    let lastPaint = 0;
+    total += await scanFile(f, (pct, n) => {
+      const now = performance.now();
+      if (now - lastPaint > 150) { bar.style.width = (pct * 100).toFixed(1) + "%"; status.textContent = `Scanning ${f.name}: ${n.toLocaleString()} emails read…`; lastPaint = now; }
+    });
+  }
+  bar.style.width = "100%";
+  save(); render();
+  const accounts = Object.values(state.services).filter(s => s.confidence >= 2).length;
+  status.textContent = `Done. Read ${total.toLocaleString()} emails and found ${accounts} likely accounts.`;
+  setTimeout(() => prog.style.display = "none", 800);
+}
+
+// ---------- Rendering ----------
+const fmt = ts => ts ? new Date(ts).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "—";
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const CONF = { 3: ["Signed up", "conf-strong"], 2: ["Likely account", "conf-likely"], 1: ["Mailing list", "conf-list"] };
+
+function render() {
+  const q = document.getElementById("search").value.toLowerCase();
+  const cat = document.getElementById("catFilter").value;
+  const conf = document.getElementById("confFilter").value;
+  const st = document.getElementById("statusFilter").value;
+  const all = Object.values(state.services);
+  const accounts = all.filter(s => s.confidence >= 2);
+
+  document.getElementById("stats").innerHTML = [
+    [accounts.length, "Accounts found"],
+    [accounts.filter(s => s.category === "Social").length, "Social media"],
+    [accounts.filter(s => s.status === "todelete").length, "Marked to delete"],
+    [all.filter(s => s.unsub && !s.unsubscribed).length, "Can unsubscribe"],
+  ].map(([n, l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join("");
+
+  const statusMatch = s => !st || (st === "unsub" ? s.unsub && !s.unsubscribed : st === "unsubscribed" ? !!s.unsubscribed : s.status === st);
+  let list = all.filter(s =>
+    (!conf || s.confidence >= 2) && (!cat || s.category === cat) && statusMatch(s) &&
+    (!q || s.name.toLowerCase().includes(q) || s.domain.includes(q)));
+  shown = list;
+  const bulk = document.getElementById("bulkUnsub");
+  const ready = list.filter(canAutoUnsub);
+  bulk.hidden = !API || !ready.length;
+  if (!bulk.dataset.armed) bulk.textContent = `Unsubscribe from ${ready.length} shown`;
+  document.getElementById("unsubNote").textContent = DEMO
+    ? "Demo mode: these are example rows and unsubscribes are simulated. Nothing is sent or saved. Remove #demo from the address to use your own data."
+    : API ? "Unsubscribe sends the sender's own one-click unsubscribe request from your PC. Other senders open their unsubscribe page so you can finish there."
+    : "Unsubscribe links open the sender's own unsubscribe page. To unsubscribe in one click, run scan_thunderbird.py and use the page it opens.";
+  list.sort((a, b) => {
+    const va = a[sortKey] ?? "", vb = b[sortKey] ?? "";
+    return (typeof va === "string" ? va.localeCompare(vb) : va - vb) * sortDir;
+  });
+
+  const rows = document.getElementById("rows");
+  if (!list.length) {
+    rows.innerHTML = `<tr><td colspan="8" class="empty">${all.length ? "No services match these filters." : "Scan a mailbox file or add an account to get started."}</td></tr>`;
+    return;
+  }
+  rows.innerHTML = list.map(s => {
+    const [cl, cc] = CONF[s.confidence] || ["Added manually", "conf-strong"];
+    const ev = s.evidence.length ? `<details><summary>${s.count} email${s.count === 1 ? "" : "s"}</summary><ul>${s.evidence.map(e => `<li>${esc(e.subject)} <span>(${fmt(e.ts)})</span></li>`).join("")}</ul></details>` : `<span class="muted">${s.manual ? "" : s.count + " email" + (s.count === 1 ? "" : "s")}</span>`;
+    return `<tr class="status-${s.status}" data-d="${esc(s.domain)}">
+      <td><div class="svc">${esc(s.name)}</div><div class="dom"><a href="https://${esc(s.domain)}" target="_blank" rel="noopener">${esc(s.domain)}</a></div></td>
+      <td><select data-f="category">${CATEGORIES.map(c => `<option${c === s.category ? " selected" : ""}>${c}</option>`).join("")}</select></td>
+      <td><div class="${cc}" style="font-size:13px;font-weight:600">${cl}</div>${ev}</td>
+      <td>${fmt(s.first)}</td><td>${fmt(s.last)}</td>
+      <td class="muted">${s.to.map(esc).join("<br>") || "—"}</td>
+      <td><select data-f="status">
+        <option value="active"${s.status === "active" ? " selected" : ""}>Active</option>
+        <option value="todelete"${s.status === "todelete" ? " selected" : ""}>To delete</option>
+        <option value="deleted"${s.status === "deleted" ? " selected" : ""}>Deleted</option>
+        <option value="remove">Remove from list</option>
+      </select></td>
+      <td>${unsubCell(s)}</td></tr>`;
+  }).join("");
+}
+
+// ---------- Unsubscribe ----------
+// API is true when the page is served by scan_thunderbird.py, which can send one-click unsubscribe requests.
+let API = false, shown = [];
+const canAutoUnsub = s => API && s.unsub && s.unsub.oneClick && !s.unsubscribed;
+function unsubCell(s) {
+  if (s.unsubscribed) return `<span class="conf-strong" style="font-size:13px;font-weight:600">Unsubscribed</span><div class="muted">${fmt(s.unsubscribed)}</div>`;
+  if (!s.unsub) return `<span class="muted">—</span>`;
+  const parts = [];
+  if (canAutoUnsub(s)) parts.push(`<button class="ghost" data-act="unsub">Unsubscribe</button>`);
+  else if (s.unsub.url) parts.push(`<a href="${esc(s.unsub.url)}" target="_blank" rel="noopener noreferrer" data-act="open">Open unsubscribe page</a>`);
+  else if (s.unsub.mailto) {
+    const addr = s.unsub.mailto.replace(/^mailto:/i, "").split("?")[0];
+    parts.push(`<span class="muted">Email</span> <code style="user-select:all">${esc(addr)}</code>`);
+  }
+  if (s.unsub.error) parts.push(`<div class="muted" style="color:var(--bad)">${esc(s.unsub.error)}</div>`);
+  if (s.unsub.url || s.unsub.mailto) parts.push(`<div><a href="#" data-act="done" class="muted">Mark done</a></div>`);
+  return parts.join("");
+}
+async function unsubscribe(s) {
+  if (DEMO) { // simulate: Amazon refuses, everyone else accepts
+    await new Promise(r => setTimeout(r, 700));
+    if (s.domain === "amazon.com") { s.unsub.oneClick = false; s.unsub.error = "The sender refused the one-click request (error 405). Use their unsubscribe page instead."; }
+    else s.unsubscribed = Date.now();
+    return;
+  }
+  try {
+    const r = await fetch("/api/unsubscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: s.unsub.url }) });
+    const res = await r.json();
+    if (res.ok) { s.unsubscribed = Date.now(); delete s.unsub.error; }
+    else { s.unsub.oneClick = false; s.unsub.error = `The sender refused the one-click request${res.status ? ` (error ${res.status})` : ""}. Use their unsubscribe page instead.`; }
+  } catch (e) {
+    s.unsub.error = "Couldn't reach the local helper. Is scan_thunderbird.py still running?";
+  }
+  save();
+}
+(async () => {
+  if (DEMO || !location.protocol.startsWith("http")) return;
+  try { API = (await (await fetch("/api/ping", { cache: "no-store" })).json()).ok === true; } catch (e) {}
+  if (API) render();
+})();
+
+// ---------- Wiring ----------
+const catSel = document.getElementById("catFilter"), addCat = document.getElementById("addCat");
+CATEGORIES.forEach(c => { catSel.add(new Option(c, c)); addCat.add(new Option(c, c)); });
+
+const QUICK = [
+  ["Welcome emails", 'subject:(welcome OR "thanks for signing up" OR "thanks for joining")'],
+  ["Verify / confirm", 'subject:(verify OR confirm OR activate) (account OR email)'],
+  ["Password resets", 'subject:("reset your password" OR "password reset")'],
+  ["New sign-ins", 'subject:("new sign-in" OR "new login" OR "security alert")'],
+];
+document.getElementById("quick").innerHTML = QUICK.map(([l, q]) =>
+  `<a class="btn ghost" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/#search/${encodeURIComponent(q)}">${l}</a>`).join("");
+
+const drop = document.getElementById("drop"), fileInput = document.getElementById("file");
+drop.onclick = () => fileInput.click();
+drop.onkeydown = e => { if (e.key === "Enter" || e.key === " ") fileInput.click(); };
+fileInput.onchange = () => { if (fileInput.files.length) scanFiles([...fileInput.files]); fileInput.value = ""; };
+["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => { if (e.dataTransfer.files.length) scanFiles([...e.dataTransfer.files]); });
+
+["search", "catFilter", "confFilter", "statusFilter"].forEach(id => document.getElementById(id).addEventListener("input", render));
+document.querySelectorAll("th[data-sort]").forEach(th => th.onclick = () => {
+  const k = th.dataset.sort; sortDir = sortKey === k ? -sortDir : (k === "name" || k === "category" ? 1 : -1); sortKey = k; render();
+});
+document.getElementById("rows").addEventListener("change", e => {
+  const tr = e.target.closest("tr"); if (!tr) return;
+  const s = state.services[tr.dataset.d], f = e.target.dataset.f;
+  if (f === "status" && e.target.value === "remove") delete state.services[tr.dataset.d];
+  else { s[f] = e.target.value; if (f === "category") s.categoryEdited = true; }
+  save(); render();
+});
+document.getElementById("rows").addEventListener("click", async e => {
+  const act = e.target.dataset.act, tr = e.target.closest("tr");
+  if (!act || !tr) return;
+  const s = state.services[tr.dataset.d];
+  if (act === "done") { e.preventDefault(); s.unsubscribed = Date.now(); save(); render(); }
+  if (act === "unsub") { e.target.disabled = true; e.target.textContent = "Unsubscribing…"; await unsubscribe(s); render(); }
+});
+const bulkBtn = document.getElementById("bulkUnsub");
+bulkBtn.onclick = async () => {
+  const targets = shown.filter(canAutoUnsub);
+  if (!bulkBtn.dataset.armed) {
+    bulkBtn.dataset.armed = "1"; bulkBtn.textContent = `Click again to unsubscribe from ${targets.length}`;
+    setTimeout(() => { if (bulkBtn.dataset.armed === "1") { delete bulkBtn.dataset.armed; render(); } }, 5000);
+    return;
+  }
+  bulkBtn.dataset.armed = "running"; bulkBtn.disabled = true;
+  let ok = 0;
+  for (const [i, s] of targets.entries()) {
+    bulkBtn.textContent = `Unsubscribing ${i + 1} of ${targets.length}…`;
+    await unsubscribe(s);
+    if (s.unsubscribed) ok++;
+  }
+  delete bulkBtn.dataset.armed; bulkBtn.disabled = false;
+  render();
+  flash(`Unsubscribed from ${ok} of ${targets.length}.${ok < targets.length ? " The rest need their unsubscribe page." : ""}`);
+};
+document.getElementById("addForm").onsubmit = e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const domain = baseDomain(String(fd.get("domain")).replace(/^https?:\/\//, "").split("/")[0]);
+  state.services[domain] = { name: String(fd.get("name")).trim(), domain, category: fd.get("category"), confidence: 3,
+    first: Date.now(), last: Date.now(), count: 0, evidence: [], to: [], status: "active", manual: true };
+  save(); render(); e.target.reset();
+};
+
+function flash(msg) {
+  const el = document.getElementById("copyMsg"); el.textContent = msg;
+  clearTimeout(flash.t); flash.t = setTimeout(() => el.textContent = "", 2500);
+}
+document.getElementById("exportCsv").onclick = () => {
+  const cell = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const lines = [["Service", "Domain", "Category", "Evidence", "First seen", "Last seen", "Address used", "Status"].map(cell).join(",")];
+  Object.values(state.services).filter(s => s.confidence >= 2).forEach(s => lines.push([s.name, s.domain, s.category,
+    (CONF[s.confidence] || ["Manual"])[0], fmt(s.first), fmt(s.last), s.to.join(" "), s.status].map(cell).join(",")));
+  const text = lines.join("\n");
+  try {
+    navigator.clipboard.writeText(text).then(() => flash("Copied. Paste into Excel or Google Sheets."), () => showText(text));
+  } catch (e) { showText(text); }
+};
+function showText(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.rows = 8; ta.style.cssText = "width:100%;margin-top:10px";
+  document.getElementById("exportCsv").closest(".panel").querySelector(".stats").before(ta);
+  ta.select(); flash("Select all and copy the text below.");
+}
+const clearBtn = document.getElementById("clearAll");
+clearBtn.onclick = () => {
+  if (clearBtn.dataset.armed) {
+    state = { services: {} }; save(); render();
+    delete clearBtn.dataset.armed; clearBtn.textContent = "Clear all"; flash("Cleared.");
+  } else {
+    clearBtn.dataset.armed = "1"; clearBtn.textContent = "Click again to clear";
+    setTimeout(() => { delete clearBtn.dataset.armed; clearBtn.textContent = "Clear all"; }, 4000);
+  }
+};
+function loadExamples() {
+  const d = (y, m) => new Date(y, m, 1).getTime();
+  const oneClick = { url: "https://example.com/unsubscribe", mailto: "", oneClick: true };
+  const pageOnly = { url: "https://example.com/email-preferences", mailto: "", oneClick: false };
+  const mailOnly = { url: "", mailto: "mailto:unsubscribe@example.com", oneClick: false };
+  const ex = [["Instagram (example)","instagram.com","Social",3,d(2019,4),d(2026,8),"Welcome to Instagram!",oneClick],
+    ["Amazon (example)","amazon.com","Shopping",2,d(2017,1),d(2026,9),"Password reset request",oneClick],
+    ["Ulta Beauty (example)","ulta.com","Shopping",3,d(2018,9),d(2026,9),"Welcome to Ultamate Rewards",oneClick],
+    ["Groupon (example)","groupon.com","Shopping",3,d(2015,5),d(2026,8),"Thanks for joining Groupon",oneClick],
+    ["Spotify (example)","spotify.com","Streaming",3,d(2020,6),d(2026,7),"Confirm your email address",pageOnly],
+    ["GitHub (example)","github.com","Work & Dev",3,d(2021,2),d(2026,9),"[GitHub] Please verify your email address",null],
+    ["Old forum (example)","oldforum.net","Other",3,d(2012,3),d(2014,0),"Thanks for registering!",mailOnly]];
+  ex.forEach(([name, domain, category, confidence, first, last, subject, unsub]) => {
+    if (!state.services[domain]) state.services[domain] = { name, domain, category, confidence, first, last, count: 3,
+      evidence: [{ subject, ts: first, conf: confidence }], to: ["you@example.com"], status: domain === "oldforum.net" ? "todelete" : "active",
+      manual: false, ...(unsub ? { unsub: { ...unsub, ts: last } } : {}) };
+  });
+}
+document.getElementById("loadSample").onclick = () => {
+  loadExamples(); save(); render(); flash("Loaded 7 example rows. Use Clear all to remove them.");
+};
+
+// Demo mode (open the page with #demo): example data and simulated unsubscribes. Nothing is saved or sent.
+const DEMO = location.hash === "#demo";
+if (DEMO) {
+  state = { services: {} }; save = () => {}; API = true;
+  loadExamples();
+  document.getElementById("unsubNote").dataset.demo = "1";
+}
+
+// Results from scan_thunderbird.py are embedded as window.PRELOAD; import them once per scan.
+if (window.PRELOAD && state.importId !== window.PRELOAD.id) {
+  // A new scan replaces the old scan's counts but keeps your statuses, category changes and manual entries.
+  const prev = state.services;
+  state.services = Object.fromEntries(Object.entries(prev).filter(([, s]) => s.manual));
+  const keys = ["from", "subject", "date", "to", "delivered-to", "x-mozilla-status", "list-unsubscribe", "list-unsubscribe-post"];
+  window.PRELOAD.messages.forEach(m => handleHeaders(Object.fromEntries(keys.map((k, i) => [k, m[i]]).filter(([, v]) => v))));
+  for (const [d, s] of Object.entries(state.services)) {
+    const p = prev[d]; if (!p || s.manual) continue;
+    s.status = p.status;
+    if (p.unsubscribed) s.unsubscribed = p.unsubscribed;
+    if (p.categoryEdited) { s.category = p.category; s.categoryEdited = true; }
+  }
+  state.importId = window.PRELOAD.id; save();
+  document.getElementById("status").textContent = `Loaded ${window.PRELOAD.messages.length.toLocaleString()} emails from Thunderbird (${window.PRELOAD.folders.join(", ")}).`;
+}
+render();
+</script>
+</body>
+</html>
